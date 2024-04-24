@@ -76,16 +76,15 @@ void op_mm(const Tensor<T>& A, const Tensor<T>& B, Tensor<T>& C)
     
     
     
-    // // ------------------------------------------------------
-    // // Approach - naive
-    // for (int i=0; i < A.h; i++){
-    //     for (int j=0; j < B.w; j++){
-    //         auto Mat_A_slice = A.slice(i, i+1, 0, A.w);
-    //         auto Mat_B_slice = B.slice(0, B.h, j, j+1);
-    //         auto Mat_C_slice = C.slice(i, i+1, j, j+1);
-    //         op_matmul_slice_kernel<<<1, ELEMWISE_BLOCK_DIM*ELEMWISE_BLOCK_DIM>>>(Mat_A_slice, Mat_B_slice, Mat_C_slice);
-    //     }
-    // }
-    // // ------------------------------------------------------
+    // ------------------------------------------------------
+    // Approach - naive
+    for (int i=0; i < A.h; i++){
+        for (int j=0; j < B.w; j++){
+            auto Mat_A_slice = A.slice(i, i+1, 0, A.w);
+            auto Mat_B_slice = B.slice(0, B.h, j, j+1);
+            auto Mat_C_slice = C.slice(i, i+1, j, j+1);
+            op_matmul_slice_kernel<<<1, ELEMWISE_BLOCK_DIM*ELEMWISE_BLOCK_DIM>>>(Mat_A_slice, Mat_B_slice, Mat_C_slice);
+        }
+    }
 
 }
