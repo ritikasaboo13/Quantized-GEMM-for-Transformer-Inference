@@ -104,6 +104,20 @@ public:
     const T b;
 };
 
+//This functor divides constant "b" by the input element, hence the name inv(erse) divide
+template <typename T>
+class InvDivideConstFunc
+{
+public:
+    __host__ __device__ T operator()(T x)
+    {
+        //Lab-1: add your code here (delete return 0)
+        return b / x;
+
+    }
+    const T b;
+};
+
 //This functor returns 1 if inputs "a" and "b" are equal
 //and returns 0 otherwise. 
 template <typename AT, typename BT, typename OutT>
@@ -119,6 +133,20 @@ public:
         else{
             return 0;
         }
+    }
+
+};
+
+
+//This functor rounds to nearest integer value 
+template <typename AT>
+class RoundInt8Func
+{
+public:
+    __host__ __device__ int8_t operator()(AT a)
+    {
+        //Lab-2: add your code here (delete return 0)
+        return nearbyintf(a); 
     }
 
 };
@@ -253,6 +281,36 @@ public:
     const BT b;
 };
 
+//This is the GPU kernel function for performing element wise operation 
+//that takes a single argument "t" and stores the result in "out"
+template <typename OpFunc, typename AT, typename T>
+__global__ void op_elemwise_unary_kernel(OpFunc f, Tensor<AT> t, Tensor<T> out)
+{
+  //Lab-1: add your code here
+    // each thread accesses 1 element of t
+    int i = threadIdx.y + ELEMWISE_BLOCK_DIM * blockIdx.y; // row
+    int j = threadIdx.x + ELEMWISE_BLOCK_DIM * blockIdx.x; // col
+    if (i < t.h && j < t.w){
+        Index(out, i, j) = f(Index(t, i, j));
+    }
+}
+
+//This function launches the GPU kernel to perform element wise operation 
+//that takes a single argument "t" and stores the result in "out"
+template <typename OpFunc, typename AT, typename T>
+void op_elemwise_unary_gpu(OpFunc f, const Tensor<AT> &t, Tensor<T> &out)
+{
+  //Lab-1:add your code here. Somewhere in this function, 
+  //you need to call op_elemwise_unary_kernel<<<???, ???>>>(f, t, out);
+  //delete assert(0) when you are done
+    // op_elemwise_unary_kernel<<<1, ELEMWISE_BLOCK_DIM*ELEMWISE_BLOCK_DIM>>>(f, t, out);
+    int M_ = (t.w + ELEMWISE_BLOCK_DIM - 1)/ ELEMWISE_BLOCK_DIM;
+    int N_ = (t.h + ELEMWISE_BLOCK_DIM - 1)/ ELEMWISE_BLOCK_DIM;
+    dim3 gridDim(M_, N_, 1);
+    dim3 blockDim(ELEMWISE_BLOCK_DIM, ELEMWISE_BLOCK_DIM, 1);
+    op_elemwise_unary_kernel<<<gridDim, blockDim>>>(f, t, out);
+}
+
 
 //This is the GPU kernel function for performing element wise operation 
 //that takes a single argument "t" and stores the result in "out"
@@ -308,7 +366,7 @@ __global__ void op_elemwise_binary_w_bcast_kernel(OpFunc f, Tensor<AT> in1, Tens
             // repeat in2 at i=0 across all indices of w
             Index(out, i, j) = f(Index(in1, i, j), Index(in2, 0, j));
         }
-        else if (in2.w == 1 && in1.h == in2.h && in1.h != in2.h) {
+        else if (in2.w == 1 && in1.h == in2.h && in1.w != in2.w) {
             // repeat in2 at j=0 across all indices of h
             Index(out, i, j) = f(Index(in1, i, j), Index(in2, i, 0));
         }  
@@ -511,6 +569,20 @@ void op_multiply(const Tensor<T> &a, T b, Tensor<T> &out)
     }
 }
 
+//This operator performs element-wise inv(erse)division of "a" and constant b i.e. b/a
+//stores the result in tensor "out"
+template <typename T>
+void op_inv_divide(const Tensor<T> &a, T b, Tensor<T> &out)
+{
+    assert(out.h == a.h && out.w == a.w);
+    InvDivideConstFunc<T> f{b};
+    if (a.on_device && out.on_device) {
+        op_elemwise_unary_gpu(f, a, out);
+    } else {
+        assert(0);
+    }
+}
+
 //This operator checks if tensor "a" and "b" are the same
 //and stores in the "out" tensor value 0 at places where "a" and "b" are not equal 
 //and 1 at places where "a" and "b" are equal.
@@ -526,6 +598,19 @@ void op_equal(const Tensor<AT> &a, const Tensor<BT> &b, Tensor<OutT> &out)
         assert(0);
     }
 }
+
+template <typename AT, typename T>
+void op_round_int8(const Tensor<AT> &a, Tensor<T> &out)
+{
+    assert(out.h == a.h && out.w == a.w);
+    RoundInt8Func<AT> f;
+    if (a.on_device && out.on_device) {
+        op_elemwise_unary_gpu(f, a, out);
+    } else {
+        assert(0);
+    }
+}
+
 
 template <typename AT, typename T, typename OutT>
 void op_outlier_extractor(const Tensor<AT> &a, T b, Tensor<OutT> &out)

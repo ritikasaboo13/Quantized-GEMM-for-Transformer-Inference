@@ -42,11 +42,27 @@ vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
     Tensor<float> Cw{1, W.w, on_gpu};
     op_absmax(W, Cw);
     
-    // std::cout << Cx.str() << std::endl;
-    // std::cout << Cw.str() << std::endl;
+    std::cout << Cx.str() << std::endl;
+    std::cout << Cw.str() << std::endl;
 
     // Step-2 Quantize
-    
+    float range = 6.0;
+
+    Tensor<float> sx{Cx.h, Cx.w, on_gpu};
+    op_inv_divide(Cx, range, sx);
+
+    Tensor<float> sw{Cw.h, Cw.w, on_gpu};
+    op_inv_divide(Cw, range, sw);
+
+    std::cout << sx.str() << std::endl;
+    std::cout << sw.str() << std::endl;
+
+    Tensor<float> X_tmp{X.h, X.w, on_gpu};
+    Tensor<int8_t> X_int8{X.h, X.w, on_gpu};
+    op_multiply(X, sx, X_tmp);
+    op_round_int8(X_tmp, X_int8);
+
+    std::cout << X_int8.str();
 
     // Step-3 Int8 Matmul
 
@@ -193,7 +209,7 @@ test_llmint8_quantization(int m, int n, int k, bool on_gpu)
 int main(int argc, char *argv[])
 {
     bool test_gpu = true;
-    int test_m = 3, test_n = 2, test_k= 5;
+    int test_m = 3, test_n = 2, test_k= 3;
 
     for (;;)
     {
