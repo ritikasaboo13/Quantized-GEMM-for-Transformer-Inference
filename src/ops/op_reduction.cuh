@@ -5,11 +5,29 @@
 #define ELEMWISE_BLOCK_DIM 32 // thread block has 32x32 threads
 
 template <typename T>
+class AbsMaxFunc
+{
+public:
+    __host__ __device__ void operator()(const T &x, const int &ind_x, T &accum, int &ind_accum)
+    {
+      //Lab-1: add your code here
+      if (x > 0){
+        if (x > accum){
+            accum = x;
+        }
+      }
+      else{
+        if (-x > accum){
+            accum = -x;
+        }
+      }
+    }
+};
+
+template <typename T>
 class MaxFunc
 {
 public:
-    //This function adds input x to the current accumulated sum value stored in accum
-    //The accumu's value is updated (to add x).  The ind_x and ind_accum arguments are not used. 
     __host__ __device__ void operator()(const T &x, const int &ind_x, T &accum, int &ind_accum)
     {
       //Lab-1: add your code here
@@ -168,6 +186,17 @@ void op_max(const Tensor<T> &in, Tensor<T> &out)
 {
     Tensor<int> out_index;
     MaxFunc<T> f;
+    if (in.on_device && out.on_device) {
+        op_reduction_gpu(f, in, out, out_index, false);
+    } else
+        assert(0);
+}
+
+template <typename T>
+void op_absmax(const Tensor<T> &in, Tensor<T> &out)
+{
+    Tensor<int> out_index;
+    AbsMaxFunc<T> f;
     if (in.on_device && out.on_device) {
         op_reduction_gpu(f, in, out, out_index, false);
     } else
