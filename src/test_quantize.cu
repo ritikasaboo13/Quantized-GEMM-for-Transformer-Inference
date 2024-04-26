@@ -1,10 +1,18 @@
 #include <getopt.h>
-#include <limits.h>
 
-#include "utils/tensor.cuh"
+#include "modules/mlp.cuh"
+#include "modules/linear.cuh"
+#include "modules/sgd.cuh"
+
+#include "ops/op_elemwise.cuh"
 #include "ops/op_mm_quantize.cuh"
+#include "ops/op_mm.cuh"
+#include "ops/op_reduction.cuh"
 
-unsigned long long randgen_seed = 0;
+unsigned long long randgen_seed = 1;
+
+static bool on_gpu = true;
+
 
 bool is_close_enough(float a, float b) {
     if (std::abs(a - b) > 0.0001) {
@@ -24,43 +32,82 @@ void assert_all_close_enough(Tensor<float> t, std::vector<float> v)
 
 
 void 
+quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
+{   
+    Tensor<float> outlierIndicesInActivation{1, X.w, on_gpu};
+    auto X_row = X.slice(0, 1, 0, X.w);
+    float threshold = 6.0;
+    std::cout << X_row.str();
+    op_outlier_extractor(X_row, threshold, outlierIndicesInActivation);
+    std::cout << outlierIndicesInActivation.str();
+
+    auto X_regular
+    // op_X_regular_extractor()
+    // op_mm_quantize(X, W, O);
+
+}
+
+
+
+
+void 
 test_quantization(int m, int n, int k, bool on_gpu)
 {
 
-    Tensor<float> X{m, k};
-    Index(X, 0, 0) = 2;
-    Index(X, 0, 1) = 45;
-    Index(X, 0, 2) = -1;
-    Index(X, 0, 3) = -17;
-    Index(X, 0, 4) = -1;
-    Index(X, 1, 0) = 0;
-    Index(X, 1, 1) = 12;
-    Index(X, 1, 2) = 3;
-    Index(X, 1, 3) = -63;
-    Index(X, 1, 4) = 2;
-    Index(X, 2, 0) = -1;
-    Index(X, 2, 1) = 37;
-    Index(X, 2, 2) = -1;
-    Index(X, 2, 3) = -83;
-    Index(X, 2, 4) = 0;
+    Tensor<float> X_host{m, k};
+    Index(X_host, 0, 0) = 2;
+    Index(X_host, 0, 1) = 45;
+    Index(X_host, 0, 2) = -1;
+    Index(X_host, 0, 3) = -17;
+    Index(X_host, 0, 4) = -1;
+    Index(X_host, 1, 0) = 0;
+    Index(X_host, 1, 1) = 12;
+    Index(X_host, 1, 2) = 3;
+    Index(X_host, 1, 3) = -63;
+    Index(X_host, 1, 4) = 2;
+    Index(X_host, 2, 0) = -1;
+    Index(X_host, 2, 1) = 37;
+    Index(X_host, 2, 2) = -1;
+    Index(X_host, 2, 3) = -83;
+    Index(X_host, 2, 4) = 0;
 
-    Tensor<float> W{k, n};
-    Index(W, 0, 0) = -1;
-    Index(W, 0, 1) = 0;
-    Index(W, 1, 0) = 2;
-    Index(W, 1, 1) = 0;
-    Index(W, 2, 0) = 0;
-    Index(W, 2, 1) = -2;
-    Index(W, 3, 0) = 3;
-    Index(W, 3, 1) = -2;   
-    Index(W, 4, 0) = -1;
-    Index(W, 4, 1) = 2;  
+    Tensor<float> X;
+    if (on_gpu) {
+        X = X_host.toDevice();
+    } else {
+        X = X_host;
+    } 
+
+    Tensor<float> W_host{k, n};
+    Index(W_host, 0, 0) = -1;
+    Index(W_host, 0, 1) = 0;
+    Index(W_host, 1, 0) = 2;
+    Index(W_host, 1, 1) = 0;
+    Index(W_host, 2, 0) = 0;
+    Index(W_host, 2, 1) = -2;
+    Index(W_host, 3, 0) = 3;
+    Index(W_host, 3, 1) = -2;   
+    Index(W_host, 4, 0) = -1;
+    Index(W_host, 4, 1) = 2;  
+    
+    Tensor<float> W;
+    if (on_gpu) {
+        W = W_host.toDevice();
+    } else {
+        W = W_host;
+    } 
     
     std::cout << "size of 1 element of X: " << CHAR_BIT * sizeof(Index(X, 0, 0)) << " bits" << std::endl;
     std::cout << "size of 1 element of W: " << CHAR_BIT * sizeof(Index(W, 0, 0)) << " bits" << std::endl;
 
-    Tensor<int32_t> O{m, n};
-    op_mm_quantize(X, Y, O);
+    // // Compute time taken for standard MM of X and W and store in O32
+    // Tensor<int32_t> O32{m, n};
+    
+    // Compute time taken for quantized MM of X and W and store in O16
+    Tensor<int16_t> O16{m, n, on_gpu};
+    quantized_mm(X, W, O16);
+    
+
 
 
 }

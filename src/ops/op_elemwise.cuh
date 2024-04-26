@@ -235,6 +235,25 @@ public:
     std::uniform_real_distribution<T> dist;
 };
 
+// This functor compares constant "b" to the absolute value of input element,
+// returns 0 if input < b else 1
+template <typename AT, typename BT, typename OutT>
+class AbsCompareLTEConstFunc
+{
+public:
+    __host__ __device__ OutT operator()(AT a)
+    {
+        if (((a >= 0) &(a <= b)) | ((a <= 0) & (-a <= b))){
+            return 0;
+        }
+        else{
+            return 1;
+        }
+    }
+    const BT b;
+};
+
+
 //This is the GPU kernel function for performing element wise operation 
 //that takes a single argument "t" and stores the result in "out"
 template <typename OpFunc, typename T>
@@ -503,6 +522,18 @@ void op_equal(const Tensor<AT> &a, const Tensor<BT> &b, Tensor<OutT> &out)
     EqualityFunc<AT, BT, OutT> f;
     if (a.on_device && b.on_device && out.on_device) {
         op_elemwise_binary_w_bcast_gpu(f, a, b, out);
+    } else {
+        assert(0);
+    }
+}
+
+template <typename AT, typename T, typename OutT>
+void op_outlier_extractor(const Tensor<AT> &a, T b, Tensor<OutT> &out)
+{
+    assert(out.h == a.h && out.w == a.w);
+    AbsCompareLTEConstFunc<AT, T, OutT> f{b};
+    if (a.on_device && out.on_device) {
+        op_elemwise_unary_gpu(f, a, out);
     } else {
         assert(0);
     }
