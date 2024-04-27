@@ -42,8 +42,8 @@ vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
     Tensor<float> Cw{1, W.w, on_gpu};
     op_absmax(W, Cw);
     
-    std::cout << Cx.str() << std::endl;
-    std::cout << Cw.str() << std::endl;
+    // std::cout << Cx.str() << std::endl;
+    // std::cout << Cw.str() << std::endl;
 
     // Step-2 Quantize
     float range = 6.0;
@@ -54,10 +54,13 @@ vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
     Tensor<float> sw{Cw.h, Cw.w, on_gpu};
     op_inv_divide(Cw, range, sw);
 
-    std::cout << sx.str() << std::endl;
-    std::cout << sw.str() << std::endl;
+    // std::cout << sx.str() << std::endl;
+    // std::cout << sw.str() << std::endl;
 
     Tensor<int8_t> X_int8{X.h, X.w, on_gpu};
+    std::cout << X.str() << std::endl;
+    std::cout << sx.str() << std::endl;
+
     op_multiply(X, sx, X_int8);
     std::cout << X_int8.str() << std::endl;
 

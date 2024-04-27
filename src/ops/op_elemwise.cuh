@@ -90,19 +90,6 @@ public:
     }
 };
 
-//This functor multiplies two input elements x and b together
-template <typename T, typename OutT>
-class MultiplyFuncTypeConversion
-{
-public:
-    __host__ __device__ OutT operator()(T x, T a)
-    {
-        //Lab-1: add your code here (delete return 0)
-        return x * a;
-
-    }
-};
-
 //This functor multiplies constant "b" to the input element
 template <typename T>
 class MultiplyConstFunc
@@ -425,12 +412,14 @@ void op_elemwise_binary_w_bcast_gpu(OpFunc f, const Tensor<AT> &in1, const Tenso
     int N_ = (in1.h + ELEMWISE_BLOCK_DIM - 1)/ ELEMWISE_BLOCK_DIM;
     dim3 gridDim(M_, N_, 1);
     dim3 blockDim(ELEMWISE_BLOCK_DIM, ELEMWISE_BLOCK_DIM, 1);
-    if (typeConversion) {
-        op_elemwise_binary_w_bcast_w_typeconversion_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
-    }
-    else{
-        op_elemwise_binary_w_bcast_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
-    }
+    op_elemwise_binary_w_bcast_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
+    // if (typeConversion) {
+    //     std::cout << "doing float to int type conversion" << std::endl;
+    //     op_elemwise_binary_w_bcast_w_typeconversion_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
+    // }
+    // else{
+    //     op_elemwise_binary_w_bcast_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
+    // }
 
 }
 
@@ -603,7 +592,7 @@ void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<OutT> &out)
 {
     assert(out.h == a.h && out.w == a.w);
     assert((a.h == b.h && a.w == b.w) || (a.h == b.h && b.w == 1) || (a.w == b.w && b.h == 1));
-    MultiplyFuncTypeConversion<T, OutT> f;
+    MultiplyFunc<T> f;
     if (a.on_device && b.on_device && out.on_device) {
         op_elemwise_binary_w_bcast_gpu(f, a, b, out, true);
     } else {
