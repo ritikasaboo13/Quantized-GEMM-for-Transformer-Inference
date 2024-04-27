@@ -57,12 +57,9 @@ vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
     std::cout << sx.str() << std::endl;
     std::cout << sw.str() << std::endl;
 
-    Tensor<float> X_tmp{X.h, X.w, on_gpu};
     Tensor<int8_t> X_int8{X.h, X.w, on_gpu};
-    op_multiply(X, sx, X_tmp);
-    op_round_int8(X_tmp, X_int8);
-
-    std::cout << X_int8.str();
+    op_multiply(X, sx, X_int8);
+    std::cout << X_int8.str() << std::endl;
 
     // Step-3 Int8 Matmul
 

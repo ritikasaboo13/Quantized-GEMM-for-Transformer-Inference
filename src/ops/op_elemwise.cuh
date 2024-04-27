@@ -90,6 +90,19 @@ public:
     }
 };
 
+//This functor multiplies two input elements x and b together
+template <typename T, typename OutT>
+class MultiplyFuncTypeConversion
+{
+public:
+    __host__ __device__ OutT operator()(T x, T a)
+    {
+        //Lab-1: add your code here (delete return 0)
+        return x * a;
+
+    }
+};
+
 //This functor multiplies constant "b" to the input element
 template <typename T>
 class MultiplyConstFunc
@@ -146,7 +159,7 @@ public:
     __host__ __device__ int8_t operator()(AT a)
     {
         //Lab-2: add your code here (delete return 0)
-        return nearbyintf(a); 
+        return round(a); 
     }
 
 };
@@ -342,6 +355,29 @@ void op_elemwise_unary_gpu(OpFunc f, const Tensor<T> &t, Tensor<T> &out)
     op_elemwise_unary_kernel<<<gridDim, blockDim>>>(f, t, out);
 }
 
+
+template <typename OpFunc, typename AT, typename BT, typename OutT>
+__global__ void op_elemwise_binary_w_bcast_w_typeconversion_kernel(OpFunc f, Tensor<AT> in1, Tensor<BT> in2, Tensor<OutT> out)
+{
+  //Lab-1: add your code here
+    int i = threadIdx.y + ELEMWISE_BLOCK_DIM * blockIdx.y; // row
+    int j = threadIdx.x + ELEMWISE_BLOCK_DIM * blockIdx.x; // col
+
+    if (i < in1.h && j < in1.w){
+        if (in2.h == 1 && in1.w == in2.w && in1.h != in2.h) {
+            // repeat in2 at i=0 across all indices of w
+            Index(out, i, j) = __float2int_ru(f(Index(in1, i, j), Index(in2, 0, j)));
+        }
+        else if (in2.w == 1 && in1.h == in2.h && in1.w != in2.w) {
+            // repeat in2 at j=0 across all indices of h
+            Index(out, i, j) = __float2int_ru(f(Index(in1, i, j), Index(in2, i, 0)));
+        }  
+        else {
+            Index(out, i, j) = __float2int_ru(f(Index(in1, i, j), Index(in2, i, j)));
+        }
+    }
+}
+
 //This is the GPU kernel function for performing element wise operation with 
 //two input arguments "in1" and "in2" with potential broadcasting. 
 // Input tensor "in2" is always the one to be 
@@ -380,7 +416,7 @@ __global__ void op_elemwise_binary_w_bcast_kernel(OpFunc f, Tensor<AT> in1, Tens
 //(with potential broadcast) with two input tensor arguments "in1" and "in2",
 // and stores the result in "out".  
 template <typename OpFunc, typename AT, typename BT, typename OutT>
-void op_elemwise_binary_w_bcast_gpu(OpFunc f, const Tensor<AT> &in1, const Tensor<BT> &in2, Tensor<OutT> &out)
+void op_elemwise_binary_w_bcast_gpu(OpFunc f, const Tensor<AT> &in1, const Tensor<BT> &in2, Tensor<OutT> &out, bool typeConversion=false)
 {
     //Lab-1: add your code here. Somewhere in this function
    //you need to call op_elemwise_binary_w_bcast_kernel<<<???, ???>>>(f, in1, in2, out);
@@ -389,7 +425,12 @@ void op_elemwise_binary_w_bcast_gpu(OpFunc f, const Tensor<AT> &in1, const Tenso
     int N_ = (in1.h + ELEMWISE_BLOCK_DIM - 1)/ ELEMWISE_BLOCK_DIM;
     dim3 gridDim(M_, N_, 1);
     dim3 blockDim(ELEMWISE_BLOCK_DIM, ELEMWISE_BLOCK_DIM, 1);
-    op_elemwise_binary_w_bcast_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
+    if (typeConversion) {
+        op_elemwise_binary_w_bcast_w_typeconversion_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
+    }
+    else{
+        op_elemwise_binary_w_bcast_kernel<<<gridDim, blockDim>>>(f, in1, in2, out);
+    }
 
 }
 
@@ -555,6 +596,21 @@ void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<T> &out)
     }
 }
 
+//This operator performs element-wise multiplication of "a" and "b" and 
+//stores the result in tensor "out"
+template <typename T, typename OutT>
+void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<OutT> &out)
+{
+    assert(out.h == a.h && out.w == a.w);
+    assert((a.h == b.h && a.w == b.w) || (a.h == b.h && b.w == 1) || (a.w == b.w && b.h == 1));
+    MultiplyFuncTypeConversion<T, OutT> f;
+    if (a.on_device && b.on_device && out.on_device) {
+        op_elemwise_binary_w_bcast_gpu(f, a, b, out, true);
+    } else {
+        assert(0);
+    }
+}
+
 //This operator performs element-wise multiplication of "a" and constant b
 //stores the result in tensor "out"
 template <typename T>
@@ -599,8 +655,8 @@ void op_equal(const Tensor<AT> &a, const Tensor<BT> &b, Tensor<OutT> &out)
     }
 }
 
-template <typename AT, typename T>
-void op_round_int8(const Tensor<AT> &a, Tensor<T> &out)
+template <typename AT>
+void op_round_int8(const Tensor<AT> &a, Tensor<int8_t> &out)
 {
     assert(out.h == a.h && out.w == a.w);
     RoundInt8Func<AT> f;
