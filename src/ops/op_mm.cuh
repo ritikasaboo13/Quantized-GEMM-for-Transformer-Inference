@@ -18,8 +18,8 @@
 //     Index(Mat_C_slice, 0, 0) = res;
 // }
 
-template <typename T>
-__global__ void op_matmul_kernel(Tensor<T> Mat_A, Tensor<T> Mat_B, Tensor<T> Mat_C){
+template <typename T, typename OutT>
+__global__ void op_matmul_kernel(Tensor<T> Mat_A, Tensor<T> Mat_B, Tensor<OutT> Mat_C){
 
     T res = 0.0;
     int row = blockIdx.y*TILE_WIDTH + threadIdx.y; // row to which thread in C belongs
@@ -53,13 +53,13 @@ __global__ void op_matmul_kernel(Tensor<T> Mat_A, Tensor<T> Mat_B, Tensor<T> Mat
     }
 
     if(row < Mat_A.h && col < Mat_B.w){
-        Index(Mat_C, row, col) = res;
+        Index(Mat_C, row, col) = static_cast<OutT>(res);
     }   
 }
 
 //This operator compute C = A@B
-template <typename T>
-void op_mm(const Tensor<T>& A, const Tensor<T>& B, Tensor<T>& C)
+template <typename T, typename OutT>
+void op_mm(const Tensor<T>& A, const Tensor<T>& B, Tensor<OutT>& C)
 {
     assert(A.h == C.h && B.w == C.w && A.w == B.h);
     assert(A.on_device && B.on_device && C.on_device);

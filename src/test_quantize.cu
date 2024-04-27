@@ -5,7 +5,6 @@
 #include "modules/sgd.cuh"
 
 #include "ops/op_elemwise.cuh"
-#include "ops/op_mm_quantize.cuh"
 #include "ops/op_mm.cuh"
 #include "ops/op_reduction.cuh"
 
@@ -46,7 +45,7 @@ vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
     // std::cout << Cw.str() << std::endl;
 
     // Step-2 Quantize
-    float range = 6.0;
+    float range = 127.0;
 
     Tensor<float> sx{Cx.h, Cx.w, on_gpu};
     op_inv_divide(Cx, range, sx);
@@ -58,13 +57,38 @@ vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
     // std::cout << sw.str() << std::endl;
 
     Tensor<int8_t> X_int8{X.h, X.w, on_gpu};
-    std::cout << X.str() << std::endl;
-    std::cout << sx.str() << std::endl;
-
     op_multiply(X, sx, X_int8);
-    std::cout << X_int8.str() << std::endl;
+    Tensor<int8_t> W_int8{W.h, W.w, on_gpu};
+    op_multiply(W, sw, W_int8);
+
+    // std::cout << "size of 1 element of X: " << CHAR_BIT * sizeof(Index(X, 0, 0)) << " bits" << std::endl;
+    // std::cout << "size of 1 element of sx: " << CHAR_BIT * sizeof(Index(sx, 0, 0)) << " bits" << std::endl;
+    // std::cout << "size of 1 element of X_int8: " << CHAR_BIT * sizeof(Index(X_int8, 0, 0)) << " bits" << std::endl;
+    // std::cout << X.str() << std::endl;
+    // std::cout << sx.str() << std::endl;
+    // std::cout << X_int8.str() << std::endl;
 
     // Step-3 Int8 Matmul
+    Tensor<int> O_int32{X.h, W.w, on_gpu};
+    op_mm(X_int8, W_int8, O_int32);
+
+    // std::cout << "size of 1 element of X_int8: " << CHAR_BIT * sizeof(Index(X_int8, 0, 0)) << " bits" << std::endl;
+    // std::cout << "size of 1 element of W_int8: " << CHAR_BIT * sizeof(Index(W_int8, 0, 0)) << " bits" << std::endl;
+    // std::cout << "size of 1 element of O_int32: " << CHAR_BIT * sizeof(Index(O_int32, 0, 0)) << " bits" << std::endl;
+    // std::cout << X_int8.str() << std::endl;
+    // std::cout << W_int8.str() << std::endl;
+    // std::cout << O_int32.str() << std::endl;
+
+
+    // Step- Check result correctness
+    Tensor<float> O_fp32{X.h, W.w, on_gpu};
+    op_mm(X, W, O_fp32);
+    // std::cout << O_fp32.str() << std::endl;
+
+
+    Tensor<float> O_random{Cx.h, Cw.w, on_gpu};
+    op_mm(Cx, Cw, O_random);
+    // std::cout << O_random.str() << std::endl;
 
 
 }
@@ -134,8 +158,8 @@ test_quantization(int m, int n, int k, bool on_gpu)
         W = W_host;
     } 
     
-    std::cout << "size of 1 element of X: " << CHAR_BIT * sizeof(Index(X, 0, 0)) << " bits" << std::endl;
-    std::cout << "size of 1 element of W: " << CHAR_BIT * sizeof(Index(W, 0, 0)) << " bits" << std::endl;
+    // std::cout << "size of 1 element of X: " << CHAR_BIT * sizeof(Index(X, 0, 0)) << " bits" << std::endl;
+    // std::cout << "size of 1 element of W: " << CHAR_BIT * sizeof(Index(W, 0, 0)) << " bits" << std::endl;
 
     // Compute time taken for absmax quantized MM of X and W and store in O16
     Tensor<int16_t> O16{m, n, on_gpu};

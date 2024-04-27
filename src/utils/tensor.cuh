@@ -180,7 +180,7 @@ public:
     {
       for (int j = 0; j < w; j++)
       {
-        if (std::is_same_v<T, char> || std::is_same_v<T, unsigned char>)
+        if (std::is_same_v<T, char> || std::is_same_v<T, unsigned char> || std::is_same_v<T, int8_t>)
         {
           ss << (int)Index(t, i, j) << " ";
         }

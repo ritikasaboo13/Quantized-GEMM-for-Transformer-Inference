@@ -90,6 +90,18 @@ public:
     }
 };
 
+
+template <typename T, typename OutT>
+class MultiplyWithTypecastFunc
+{
+public:
+    __host__ __device__ OutT operator()(T x, T a)
+    {
+        return static_cast<OutT> (x * a);
+    }
+};
+
+
 //This functor multiplies constant "b" to the input element
 template <typename T>
 class MultiplyConstFunc
@@ -592,7 +604,7 @@ void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<OutT> &out)
 {
     assert(out.h == a.h && out.w == a.w);
     assert((a.h == b.h && a.w == b.w) || (a.h == b.h && b.w == 1) || (a.w == b.w && b.h == 1));
-    MultiplyFunc<T> f;
+    MultiplyWithTypecastFunc<T, OutT> f;
     if (a.on_device && b.on_device && out.on_device) {
         op_elemwise_binary_w_bcast_gpu(f, a, b, out, true);
     } else {
