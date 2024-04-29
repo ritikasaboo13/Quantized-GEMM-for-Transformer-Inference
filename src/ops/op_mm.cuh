@@ -21,7 +21,7 @@
 template <typename T, typename OutT>
 __global__ void op_matmul_kernel(Tensor<T> Mat_A, Tensor<T> Mat_B, Tensor<OutT> Mat_C){
 
-    T res = 0.0;
+    OutT res = 0;
     int row = blockIdx.y*TILE_WIDTH + threadIdx.y; // row to which thread in C belongs
     int col = blockIdx.x*TILE_WIDTH + threadIdx.x; // col to which thread in C belongs
 
@@ -34,14 +34,14 @@ __global__ void op_matmul_kernel(Tensor<T> Mat_A, Tensor<T> Mat_B, Tensor<OutT> 
             A_tile_shared[threadIdx.y][threadIdx.x] = Index(Mat_A, row, ((k*TILE_WIDTH) + threadIdx.x)); //load tile from A from row into A_tile_shared
         }
         else{
-            A_tile_shared[threadIdx.y][threadIdx.x] = 0.0;
+            A_tile_shared[threadIdx.y][threadIdx.x] = 0;
         }
         // Initialize B_tile_shared
         if ((k*TILE_WIDTH + threadIdx.y) < Mat_B.h && col < Mat_B.w){
             B_tile_shared[threadIdx.y][threadIdx.x] = Index(Mat_B, (k*TILE_WIDTH + threadIdx.y), col); //load tile from B from col into B_tile_shared
         }
         else{
-            B_tile_shared[threadIdx.y][threadIdx.x] = 0.0;
+            B_tile_shared[threadIdx.y][threadIdx.x] = 0;
         }
 
         __syncthreads();
@@ -53,7 +53,7 @@ __global__ void op_matmul_kernel(Tensor<T> Mat_A, Tensor<T> Mat_B, Tensor<OutT> 
     }
 
     if(row < Mat_A.h && col < Mat_B.w){
-        Index(Mat_C, row, col) = static_cast<OutT>(res);
+        Index(Mat_C, row, col) = res;
     }   
 }
 

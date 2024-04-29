@@ -90,6 +90,18 @@ public:
     }
 };
 
+template <typename T1, typename T2>
+class DequantizeFunc
+{
+public:
+    __host__ __device__ T2 operator()(T1 x, T2 a)
+    {
+        //Lab-1: add your code here (delete return 0)
+        return (static_cast<T2>(x)) * a; 
+
+    }
+};
+
 
 template <typename T, typename OutT>
 class MultiplyWithTypecastFunc
@@ -415,7 +427,7 @@ __global__ void op_elemwise_binary_w_bcast_kernel(OpFunc f, Tensor<AT> in1, Tens
 //(with potential broadcast) with two input tensor arguments "in1" and "in2",
 // and stores the result in "out".  
 template <typename OpFunc, typename AT, typename BT, typename OutT>
-void op_elemwise_binary_w_bcast_gpu(OpFunc f, const Tensor<AT> &in1, const Tensor<BT> &in2, Tensor<OutT> &out, bool typeConversion=false)
+void op_elemwise_binary_w_bcast_gpu(OpFunc f, const Tensor<AT> &in1, const Tensor<BT> &in2, Tensor<OutT> &out)
 {
     //Lab-1: add your code here. Somewhere in this function
    //you need to call op_elemwise_binary_w_bcast_kernel<<<???, ???>>>(f, in1, in2, out);
@@ -599,6 +611,21 @@ void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<T> &out)
 
 //This operator performs element-wise multiplication of "a" and "b" and 
 //stores the result in tensor "out"
+template <typename T1, typename T2>
+void op_dequantize(const Tensor<T1> &a, const Tensor<T2> &b, Tensor<T2> &out)
+{
+    assert(out.h == a.h && out.w == a.w);
+    assert((a.h == b.h && a.w == b.w) || (a.h == b.h && b.w == 1) || (a.w == b.w && b.h == 1));
+    DequantizeFunc<T1, T2> f;
+    if (a.on_device && b.on_device && out.on_device) {
+        op_elemwise_binary_w_bcast_gpu(f, a, b, out);
+    } else {
+        assert(0);
+    }
+}
+
+//This operator performs element-wise multiplication of "a" and "b" and 
+//stores the result in tensor "out"
 template <typename T, typename OutT>
 void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<OutT> &out)
 {
@@ -606,7 +633,7 @@ void op_multiply(const Tensor<T> &a, const Tensor<T> &b, Tensor<OutT> &out)
     assert((a.h == b.h && a.w == b.w) || (a.h == b.h && b.w == 1) || (a.w == b.w && b.h == 1));
     MultiplyWithTypecastFunc<T, OutT> f;
     if (a.on_device && b.on_device && out.on_device) {
-        op_elemwise_binary_w_bcast_gpu(f, a, b, out, true);
+        op_elemwise_binary_w_bcast_gpu(f, a, b, out);
     } else {
         assert(0);
     }

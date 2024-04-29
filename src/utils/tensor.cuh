@@ -176,6 +176,8 @@ public:
       t = *this;
     }
     std::stringstream ss;
+    ss.precision(6);
+    ss << std::fixed; 
     for (int i = 0; i < h; i++)
     {
       for (int j = 0; j < w; j++)
@@ -186,7 +188,7 @@ public:
         }
         else
         {
-         // std::cout << "haha " << Index(t, i, j) << std::endl;
+          //std::cout << "haha " << std::endl;
           ss << Index(t, i, j) << " ";
         }
         ss << "";
