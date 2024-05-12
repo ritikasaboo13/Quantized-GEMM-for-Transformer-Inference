@@ -40,20 +40,24 @@ public:
     }
 
     void forward(const Tensor<T> &X, Tensor<T> &output) {
-        Tensor<T> Q, K, V;
+        Tensor<T> Q(X.h, W_q.t.w, X.on_device);
+        Tensor<T> K(X.h, W_k.t.w, X.on_device);
+        Tensor<T> V(X.h, W_v.t.w, X.on_device);
         op_mm(X, W_q.t, Q);  // Q = X * W_q
         op_mm(X, W_k.t, K);  // K = X * W_k
         op_mm(X, W_v.t, V);  // V = X * W_v
 
         Tensor<T> K_transpose = K.transpose();
-        Tensor<T> QK_T;
+        Tensor<T> QK_T(Q.h, K_transpose.w, Q.on_device);
         op_mm(Q, K_transpose, QK_T); // QK^T
 
-        Tensor<T> scaled_QK_T;
-        T scale_factor = 1.0 / std::sqrt(d_k);
-        op_multiply(QK_T, scale_factor, scaled_QK_T); // Scale QK^T by sqrt(d_k)
+        Tensor<T> scaled_QK_T(QK_T.h, QK_T.w, QK_T.on_device);
+        float scale_factor = 1.0 / std::sqrt(d_k);
+        Tensor<float> scale_tensor(1, 1, QK_T.on_device);
+        Index(scale_tensor, 0, 0) = scale_factor;
+        op_multiply(QK_T, scale_tensor, scaled_QK_T); // Scale QK^T by sqrt(d_k)
 
-        Tensor<T> softmax_QK_T;
+        Tensor<T> softmax_QK_T(QK_T.h, QK_T.w, QK_T.on_device);
         op_softmax(scaled_QK_T, softmax_QK_T);  // Apply softmax
         op_mm(softmax_QK_T, V, output);  // Output = softmax(QK^T) * V
     }

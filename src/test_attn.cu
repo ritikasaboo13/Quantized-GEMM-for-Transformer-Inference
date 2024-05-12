@@ -8,3 +8,6 @@
 
 unsigned long long randgen_seed = 0;
 
+int main() {
+    return 0;
+}
