@@ -53,8 +53,8 @@ public:
 
         Tensor<T> scaled_QK_T(QK_T.h, QK_T.w, QK_T.on_device);
         float scale_factor = 1.0 / std::sqrt(d_k);
-        Tensor<float> scale_tensor(1, 1, QK_T.on_device);
-        Index(scale_tensor, 0, 0) = scale_factor;
+        Tensor<float> scale_tensor(QK_T.h, QK_T.w, QK_T.on_device);
+        op_const_init(scale_tensor, scale_factor);
         op_multiply(QK_T, scale_tensor, scaled_QK_T); // Scale QK^T by sqrt(d_k)
 
         Tensor<T> softmax_QK_T(QK_T.h, QK_T.w, QK_T.on_device);
