@@ -5,61 +5,83 @@
 #include "ops/op_elemwise.cuh"
 #include "ops/op_reduction.cuh"
 #include "ops/op_softmax.cuh"
+#include "modules/attention.cuh"
+#include "modules/linear.cuh"
+#include "modules/mlp.cuh"
 
 unsigned long long randgen_seed = 0;
+static bool on_gpu = true;
+
+void test_singleHeadAttn(const Tensor<float> X, Tensor<float> attnOutput, int d_model) {
+    // Single Head attention
+    // Singlehead Attention parameters 
+    // For single headed attention, d_model, d_k, d_v are all same as d_model ~ 512
+    int d_k = d_model, d_v = d_model; 
+    AttentionLayer<float> attn{d_model, d_k, d_v, on_gpu};
+    attn.init_uniform(); // attn.parameters(); ???
+    attn.forward(X, attnOutput);
+    std::cout << "X= \n" << X.str() << std::endl;
+    std::cout << "output= \n" << attnOutput.str() << std::endl;
+}
+
+void test_multiHeadAttn(const Tensor<float> X, Tensor<float> attnOutput, int d_model, int heads) {
+    // Multihead Attention parameters
+    // For multi headed attention, d_model ~ 512 and d_k, d_v are d_model / num_of_heads 
+    int d_k = d_model/heads, d_v = d_model/heads; 
+    Tensor<float> attnOutputPerHead(X.h, d_model, true);
+
+    for(int i = 0; i < heads; ++i) {
+        AttentionLayer<float> attn{d_model, d_k, d_v, on_gpu};
+        attn.init_uniform(); // attn.parameters(); ???
+        attn.forward(X, attnOutputPerHead);
+        std::cout << "X= \n" << X.str() << std::endl;
+        std::cout << "output= \n" << attnOutputPerHead.str() << std::endl;
+        // concatenate attnOutput to attnOutput
+
+    }
+
+}
+
 
 int main() {
-    int n = 2;
-    int d_model = 8;
-    int d_k = 4;
-    float scale_factor = 1.0 / std::sqrt(d_k);
+    // Attention variables 
+    int seq_length = 2; 
+    int d_model = 512, heads = 8; 
+    float scale_factor = 1.0 / std::sqrt(d_model);
 
-    Tensor<float> X(n, d_model, true);
+    // Feedforward variables
+    int n_layers = 2;
+    std::vector<int> layer_dims;
+    int d_ff = 2048;
+
+    // Initialize the embedding vectors for a sequence 
+    Tensor<float> X(seq_length, d_model, true); 
     op_uniform_init(X, -scale_factor, scale_factor);
-    std::cout << "X= \n" << X.str() << std::endl;
 
-    Tensor<float> W_q(d_model, d_k, true);
-    op_uniform_init(W_q, -scale_factor, scale_factor);
-    std::cout << "W_q= \n" << W_q.str() << std::endl;
+    // Test single head attention
+    Tensor<float> attnOutput(X.h, d_model, true);
+    test_singleHeadAttn(X, attnOutput, d_model);
+    std::cout << "Single head attention tested! " << std::endl; 
 
-    Tensor<float> W_k(d_model, d_k, true);
-    op_uniform_init(W_k, -scale_factor, scale_factor);
-    std::cout << "W_k= \n" << W_k.str() << std::endl;
+    // Test mutli head attention : incomplete
+    //test_multiHeadAttn(X, attnOutput, d_model, heads);
+    //std::cout << "Multi head attention tested! " << std::endl; 
+    // INCOMPLETE MULTI HEAD ATTENTION, DO NOT USE RIGHT NOW
 
-    Tensor<float> W_v(d_model, d_k, true);
-    op_uniform_init(W_v, -scale_factor, scale_factor);
-    std::cout << "W_v= \n" << W_v.str() << std::endl;
+    // Add & Norm
+    op_add(X, attnOutput, X);
+    // INCOMPLETE: need to write layer normalization 
 
-    Tensor<float> Q(X.h, W_q.w, true);
-    op_mm(X, W_q, Q);
-    std::cout << "Q= \n" << Q.str() << std::endl;
+    // Feedforward Layer: 2 layer mlp with d_model => d_ff => d_model and relu in between 
+    for (int i = 0; i < n_layers - 1; i++)
+    {
+        layer_dims.push_back(d_ff);
+    }
+    layer_dims.push_back(d_model); // last layer's out dimension is always 10 (# of digits) // 
 
-    Tensor<float> K(X.h, W_k.w, true);
-    op_mm(X, W_k, K);
-    std::cout << "K= \n" << K.str() << std::endl;
-
-    Tensor<float> V(X.h, W_v.w, true);
-    op_mm(X, W_v, V);
-    std::cout << "V= \n" << V.str() << std::endl;
-
-    Tensor<float> K_transpose = K.transpose();
-    Tensor<float> QK_T(Q.h, K_transpose.w, true);
-    op_mm(Q, K_transpose, QK_T);
-    std::cout << "QK_T= \n" << QK_T.str() << std::endl;
-
-    Tensor<float> scaled_QK_T(QK_T.h, QK_T.w, true);
-    Tensor<float> scale_tensor(QK_T.h, QK_T.w, true);
-    op_const_init(scale_tensor, scale_factor);
-    op_multiply(QK_T, scale_tensor, scaled_QK_T);
-    std::cout << "scaled_QK_T= \n" << scaled_QK_T.str() << std::endl;
-
-    Tensor<float> softmax_QK_T(QK_T.h, QK_T.w, true);
-    op_softmax(scaled_QK_T, softmax_QK_T);
-    std::cout << "softmax_QK_T= \n" << softmax_QK_T.str() << std::endl;
-
-    Tensor<float> output(Q.h, V.w, true);
-    op_mm(softmax_QK_T, V, output);
-    std::cout << "output= \n" << output.str() << std::endl;
-
+    Tensor<float> X_ffd(seq_length, d_model, true); 
+    MLP<float> mlp(seq_length, d_model, layer_dims, on_gpu);
+    mlp.init();
+    mlp.forward(X, X_ffd);
     return 0;
 }

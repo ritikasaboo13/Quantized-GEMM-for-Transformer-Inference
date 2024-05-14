@@ -63,3 +63,42 @@ void op_mm(const Tensor<T>& A, const Tensor<T>& B, Tensor<OutT>& C)
     op_matmul_kernel<<<gridDim, blockDim>>>(A, B, C);
 
 }
+
+//This operator compute C = A@B
+template <typename T>
+void op_quantized_mm(const Tensor<T>& X, const Tensor<T>& W, Tensor<T>& O, T range)
+{
+    assert(X.h == O.h && W.w == O.w && X.w == W.h);
+    assert(X.on_device && W.on_device && O.on_device);
+
+    bool on_gpu = true;
+    // Find vectorwise constants: Cx & Cw
+    Tensor<T> Cx{X.h, 1, on_gpu};
+    op_absmax(X, Cx);
+    Tensor<T> Cw{1, W.w, on_gpu};
+    op_absmax(W, Cw);
+
+    // Quantize
+    Tensor<T> sx{Cx.h, Cx.w, on_gpu};
+    op_inv_divide(Cx, range, sx);
+    Tensor<T> sw{Cw.h, Cw.w, on_gpu};
+    op_inv_divide(Cw, range, sw);
+    Tensor<int8_t> X_int8{X.h, X.w, on_gpu};
+    op_multiply(X, sx, X_int8);
+    Tensor<int8_t> W_int8{W.h, W.w, on_gpu};
+    op_multiply(W, sw, W_int8);
+
+    // Int8 Matmul
+    
+    Tensor<int> O_int32{X.h, W.w, on_gpu};
+    op_mm(X_int8, W_int8, O_int32);
+
+    // Dequantize
+    Tensor<T> Outer_Product{Cx.h, Cw.w, on_gpu};
+    op_mm(Cx, Cw, Outer_Product);
+    op_dequantize(O_int32, Outer_Product, O);
+    op_multiply(O, 1/(range*range), O);
+
+}
+
+

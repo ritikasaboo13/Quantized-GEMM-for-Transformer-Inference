@@ -31,6 +31,153 @@ void assert_all_close_enough(Tensor<float> t, std::vector<float> v)
     }
 }
 
+void 
+test_quantization(int m, int n, int k, bool on_gpu)
+{
+
+    Tensor<float> X_host{m, k};
+    Index(X_host, 0, 0) = 2.0;
+    Index(X_host, 0, 1) = -1.0;
+    Index(X_host, 0, 2) = -1.0;
+    Index(X_host, 1, 0) = 0.0;
+    Index(X_host, 1, 1) = 3.0;
+    Index(X_host, 1, 2) = 2.0;
+    Index(X_host, 2, 0) = -1.0;
+    Index(X_host, 2, 1) = -1.0;
+    Index(X_host, 2, 2) = 0.0;
+
+    Tensor<float> X;
+    if (on_gpu) {
+        X = X_host.toDevice();
+    } else {
+        X = X_host;
+    } 
+
+    Tensor<float> W_host{k, n};
+    Index(W_host, 0, 0) = -1.0;
+    Index(W_host, 0, 1) = 0.0;
+    Index(W_host, 1, 0) = 0.0;
+    Index(W_host, 1, 1) = -2.0;  
+    Index(W_host, 2, 0) = -1.0;
+    Index(W_host, 2, 1) = 2.0;  
+    
+    Tensor<float> W;
+    if (on_gpu) {
+        W = W_host.toDevice();
+    } else {
+        W = W_host;
+    } 
+
+    Tensor<float> uQ_out{m, n, on_gpu};
+    op_mm(X, W, uQ_out);
+    std::cout << "Unquantized result: " << std::endl;
+    std::cout << uQ_out.str() << std::endl;
+
+    float range = 127.0;
+    Tensor<float> Q_out{m, n, on_gpu};
+    op_quantized_mm(X, W, Q_out, range);
+
+    Tensor<float> Q_error{m, n, on_gpu};
+    op_subtract(uQ_out, Q_out, Q_error);
+    cout << "Mean quantization error: " << endl;
+    std::cout << Q_error.toHost().mean() << std::endl; 
+
+}
+
+int main(int argc, char *argv[])
+{
+    bool test_gpu = true;
+    int test_m = 3, test_n = 2, test_k= 3;
+
+    for (;;)
+    {
+        switch (getopt(argc, argv, "s:ch:l:b:e:"))
+        {
+        case 's':
+            randgen_seed = atoll(optarg);
+            continue;
+        case 'c': //cpu testing only
+            test_gpu = false;
+            continue;
+        case 'm':
+            test_m = atoi(optarg);
+            continue;
+        case 'n':
+            test_n = atoi(optarg);
+            continue;
+        case 'k':
+            test_k = atoi(optarg);
+            continue;
+        case -1:
+            break;
+        }
+        break;
+    }
+    test_quantization(test_m, test_n, test_k, test_gpu);
+    std::cout << "All tests completed successfully!" << std::endl;
+    return 0;
+}
+
+/*
+void 
+test_llmint8_quantization(int m, int n, int k, bool on_gpu)
+{
+
+    Tensor<float> X_host{m, k};
+    Index(X_host, 0, 0) = 2.0;
+    Index(X_host, 0, 1) = 45.0;
+    Index(X_host, 0, 2) = -1.0;
+    Index(X_host, 0, 3) = -17.0;
+    Index(X_host, 0, 4) = -1.0;
+    Index(X_host, 1, 0) = 0.0;
+    Index(X_host, 1, 1) = 12.0;
+    Index(X_host, 1, 2) = 3.0;
+    Index(X_host, 1, 3) = -63.0;
+    Index(X_host, 1, 4) = 2.0;
+    Index(X_host, 2, 0) = -1.0;
+    Index(X_host, 2, 1) = 37.0;
+    Index(X_host, 2, 2) = -1.0;
+    Index(X_host, 2, 3) = -83.0;
+    Index(X_host, 2, 4) = 0.0;
+
+    Tensor<float> X;
+    if (on_gpu) {
+        X = X_host.toDevice();
+    } else {
+        X = X_host;
+    } 
+
+    Tensor<float> W_host{k, n};
+    Index(W_host, 0, 0) = -1.0;
+    Index(W_host, 0, 1) = 0.0;
+    Index(W_host, 1, 0) = 2.0;
+    Index(W_host, 1, 1) = 0.0;
+    Index(W_host, 2, 0) = 0.0;
+    Index(W_host, 2, 1) = -2.0;
+    Index(W_host, 3, 0) = 3.0;
+    Index(W_host, 3, 1) = -2.0;   
+    Index(W_host, 4, 0) = -1.0;
+    Index(W_host, 4, 1) = 2.0;  
+    
+    Tensor<float> W;
+    if (on_gpu) {
+        W = W_host.toDevice();
+    } else {
+        W = W_host;
+    } 
+    
+    std::cout << "size of 1 element of X: " << CHAR_BIT * sizeof(Index(X, 0, 0)) << " bits" << std::endl;
+    std::cout << "size of 1 element of W: " << CHAR_BIT * sizeof(Index(W, 0, 0)) << " bits" << std::endl;
+
+    // // Compute time taken for standard MM of X and W and store in O32
+    // Tensor<int32_t> O32{m, n};
+    
+    // Compute time taken for quantized MM of X and W and store in O16
+    Tensor<int16_t> O16{m, n, on_gpu};
+}*/
+
+
+/*
 void vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<float>& O)
 {   
     // Step-1 Find vector-wise constants
@@ -100,180 +247,4 @@ void vectorwise_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<float>& 
     std::cout << "Unquantized result: " << std::endl;
     std::cout << O_fp_unquantized.str() << std::endl;
 
-}
-void 
-llmint8_quantized_mm(Tensor<float>& X, Tensor<float>& W, Tensor<int16_t>& O)
-{   
-    Tensor<float> outlierIndicesInActivation{1, X.w, on_gpu};
-    auto X_row = X.slice(0, 1, 0, X.w);
-    float threshold = 6.0;
-    std::cout << X_row.str();
-    op_outlier_extractor(X_row, threshold, outlierIndicesInActivation);
-    std::cout << outlierIndicesInActivation.str();
-    
-    // // Create X_regular, X_outlier, W_regular, W_outlier
-    // Tensor<float> numOutliers{1, 1, on_gpu}; 
-    // op_sum(outlierIndicesInActivation, numOutliers);
-
-    // Tensor<float> X_regular{X.h, X.w-Index(numOutliers, 1, 1), on_gpu};
-    // Tensor<float> X_outlier{X.h, Index(numOutliers, 1, 1), on_gpu};
-    // Tensor<float> W_regular{W.h-Index(numOutliers, 1, 1), W.w, on_gpu};
-    // Tensor<float> W_outlier{Index(numOutliers, 1, 1), W.w, on_gpu};
-
-
-    // Create Cx from X_regular
-    // Create Cw from W_regular
-    
-    // op_mm_quantize(X, W, O);
-
-}
-
-void 
-test_quantization(int m, int n, int k, bool on_gpu)
-{
-
-    Tensor<float> X_host{m, k};
-    Index(X_host, 0, 0) = 2.0;
-    Index(X_host, 0, 1) = -1.0;
-    Index(X_host, 0, 2) = -1.0;
-    Index(X_host, 1, 0) = 0.0;
-    Index(X_host, 1, 1) = 3.0;
-    Index(X_host, 1, 2) = 2.0;
-    Index(X_host, 2, 0) = -1.0;
-    Index(X_host, 2, 1) = -1.0;
-    Index(X_host, 2, 2) = 0.0;
-
-    Tensor<float> X;
-    if (on_gpu) {
-        X = X_host.toDevice();
-    } else {
-        X = X_host;
-    } 
-
-    Tensor<float> W_host{k, n};
-    Index(W_host, 0, 0) = -1.0;
-    Index(W_host, 0, 1) = 0.0;
-    Index(W_host, 1, 0) = 0.0;
-    Index(W_host, 1, 1) = -2.0;  
-    Index(W_host, 2, 0) = -1.0;
-    Index(W_host, 2, 1) = 2.0;  
-    
-    Tensor<float> W;
-    if (on_gpu) {
-        W = W_host.toDevice();
-    } else {
-        W = W_host;
-    } 
-
-    Tensor<float> uQ_out{m, n, on_gpu};
-    op_mm(X, W, uQ_out);
-    std::cout << "Unquantized result: " << std::endl;
-    std::cout << uQ_out.str() << std::endl;
-
-   
-    Tensor<float> Q_out{m, n, on_gpu};
-    vectorwise_quantized_mm(X, W, Q_out);
-
-    Tensor<float> Q_error{m, n, on_gpu};
-    op_subtract(uQ_out, Q_out, Q_error);
-    cout << "Mean quantization error: " << endl;
-    std::cout << Q_error.toHost().mean() << std::endl; 
-
-     // Compute time taken for absmax quantized MM of X and W and store in O16
-
-
-}
-
-
-
-
-void 
-test_llmint8_quantization(int m, int n, int k, bool on_gpu)
-{
-
-    Tensor<float> X_host{m, k};
-    Index(X_host, 0, 0) = 2.0;
-    Index(X_host, 0, 1) = 45.0;
-    Index(X_host, 0, 2) = -1.0;
-    Index(X_host, 0, 3) = -17.0;
-    Index(X_host, 0, 4) = -1.0;
-    Index(X_host, 1, 0) = 0.0;
-    Index(X_host, 1, 1) = 12.0;
-    Index(X_host, 1, 2) = 3.0;
-    Index(X_host, 1, 3) = -63.0;
-    Index(X_host, 1, 4) = 2.0;
-    Index(X_host, 2, 0) = -1.0;
-    Index(X_host, 2, 1) = 37.0;
-    Index(X_host, 2, 2) = -1.0;
-    Index(X_host, 2, 3) = -83.0;
-    Index(X_host, 2, 4) = 0.0;
-
-    Tensor<float> X;
-    if (on_gpu) {
-        X = X_host.toDevice();
-    } else {
-        X = X_host;
-    } 
-
-    Tensor<float> W_host{k, n};
-    Index(W_host, 0, 0) = -1.0;
-    Index(W_host, 0, 1) = 0.0;
-    Index(W_host, 1, 0) = 2.0;
-    Index(W_host, 1, 1) = 0.0;
-    Index(W_host, 2, 0) = 0.0;
-    Index(W_host, 2, 1) = -2.0;
-    Index(W_host, 3, 0) = 3.0;
-    Index(W_host, 3, 1) = -2.0;   
-    Index(W_host, 4, 0) = -1.0;
-    Index(W_host, 4, 1) = 2.0;  
-    
-    Tensor<float> W;
-    if (on_gpu) {
-        W = W_host.toDevice();
-    } else {
-        W = W_host;
-    } 
-    
-    std::cout << "size of 1 element of X: " << CHAR_BIT * sizeof(Index(X, 0, 0)) << " bits" << std::endl;
-    std::cout << "size of 1 element of W: " << CHAR_BIT * sizeof(Index(W, 0, 0)) << " bits" << std::endl;
-
-    // // Compute time taken for standard MM of X and W and store in O32
-    // Tensor<int32_t> O32{m, n};
-    
-    // Compute time taken for quantized MM of X and W and store in O16
-    Tensor<int16_t> O16{m, n, on_gpu};
-}
-
-int main(int argc, char *argv[])
-{
-    bool test_gpu = true;
-    int test_m = 3, test_n = 2, test_k= 3;
-
-    for (;;)
-    {
-        switch (getopt(argc, argv, "s:ch:l:b:e:"))
-        {
-        case 's':
-            randgen_seed = atoll(optarg);
-            continue;
-        case 'c': //cpu testing only
-            test_gpu = false;
-            continue;
-        case 'm':
-            test_m = atoi(optarg);
-            continue;
-        case 'n':
-            test_n = atoi(optarg);
-            continue;
-        case 'k':
-            test_k = atoi(optarg);
-            continue;
-        case -1:
-            break;
-        }
-        break;
-    }
-    test_quantization(test_m, test_n, test_k, test_gpu);
-    std::cout << "All tests completed successfully!" << std::endl;
-    return 0;
-}
+}*/
