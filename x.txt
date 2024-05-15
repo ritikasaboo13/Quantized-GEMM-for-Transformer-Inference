@@ -1,0 +1,25 @@
+1
+Tesla V100-SXM2-16GB
+True
+X
+tensor([[ 0.3374, -0.1778, -0.3035],
+        [-0.5880,  0.3486,  0.6603]])
+X.shape=torch.Size([2, 3])
+Parameter containing:
+tensor([[0.2482, 0.2993],
+        [0.0759, 0.4924],
+        [0.5452, 0.0620]], requires_grad=True)
+W_query.shape=torch.Size([3, 2])
+Parameter containing:
+tensor([[0.8953, 0.6716],
+        [0.7721, 0.8670],
+        [0.0594, 0.7789]], requires_grad=True)
+W_key.shape=torch.Size([3, 2])
+Parameter containing:
+tensor([[0.9583, 0.6320, 0.1432, 0.0040],
+        [0.0569, 0.1546, 0.6056, 0.3590],
+        [0.6802, 0.0089, 0.1739, 0.7423]], requires_grad=True)
+W_value.shape=torch.Size([3, 4])
+Self-attention output:
+tensor([[ 0.0661,  0.1509,  0.1394, -0.0064],
+        [ 0.0743,  0.1694,  0.1561, -0.0105]], grad_fn=<MmBackward0>)
