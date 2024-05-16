@@ -36,26 +36,7 @@ void test_matmul(int m, int n, int k, bool on_gpu) {
 
     // quantized matmul steps 
     gettimeofday(&qstart, NULL);
-    Tensor<float> Cx{X.h, 1, on_gpu};
-    op_absmax(X, Cx);
-    Tensor<float> Cw{1, W.w, on_gpu};
-    op_absmax(W, Cw);
-    float range = 127.0;
-    Tensor<float> sx{Cx.h, Cx.w, on_gpu};
-    op_inv_divide(Cx, range, sx);
-    Tensor<float> sw{Cw.h, Cw.w, on_gpu};
-    op_inv_divide(Cw, range, sw);
-    Tensor<int8_t> X_int8{X.h, X.w, on_gpu};
-    op_multiply(X, sx, X_int8);
-    Tensor<int8_t> W_int8{W.h, W.w, on_gpu};
-    op_multiply(W, sw, W_int8);
-    Tensor<int> O_int32{X.h, W.w, on_gpu};
-    op_mm(X_int8, W_int8, O_int32);
-    Tensor<float> Outer_Product{Cx.h, Cw.w, on_gpu};
-    op_mm(Cx, Cw, Outer_Product);
-    Tensor<float> O_fp{O_int32.h, O_int32.w, on_gpu};
-    op_dequantize(O_int32, Outer_Product, qC);
-    op_multiply(qC, 1/(range*range), qC);
+    op_quantized_mm(X, W, qC, 127.0f);
     cudaDeviceSynchronize();
     gettimeofday(&qfinish, NULL);
 
@@ -73,7 +54,7 @@ void test_matmul(int m, int n, int k, bool on_gpu) {
 
 int main(int argc, char *argv[]) {
     bool test_gpu = true;
-    int test_m = 335, test_n = 587, test_k= 699;
+    int test_m = 4096, test_n = 4096, test_k= 4096;
     for (;;) {
         switch (getopt(argc, argv, "s:cm:n:k:")) {
         case 's':

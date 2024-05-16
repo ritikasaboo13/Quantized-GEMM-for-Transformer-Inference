@@ -652,7 +652,6 @@ void op_multiply(const Tensor<T> &a, T b, Tensor<T> &out)
         assert(0);
     }
 }
-
 //This operator performs element-wise inv(erse)division of "a" and constant b i.e. b/a
 //stores the result in tensor "out"
 template <typename T>

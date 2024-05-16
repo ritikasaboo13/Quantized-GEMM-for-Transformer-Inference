@@ -45,7 +45,7 @@ int main() {
 
     // Execute softmax operation
     Tensor<float> input_ = input.toDevice();
-    op_softmax(input_, output);
+    op_softmax(input_, output);   // CHANGE
 
     // Print results
     std::cout << "Input:" << std::endl;
