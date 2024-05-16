@@ -54,7 +54,7 @@ void test_matmul(int m, int n, int k, bool on_gpu) {
 
 int main(int argc, char *argv[]) {
     bool test_gpu = true;
-    int test_m = 2048, test_n = 256, test_k= 256;
+    int test_m = 4096, test_n = 4096, test_k= 4096;
     for (;;) {
         switch (getopt(argc, argv, "s:cm:n:k:")) {
         case 's':
