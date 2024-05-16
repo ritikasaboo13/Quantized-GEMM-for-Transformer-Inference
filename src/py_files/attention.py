@@ -22,12 +22,6 @@ class SelfAttention(nn.Module):
 # How many GPUs are there?
 print(torch.cuda.device_count())
 
-# Get the name of the current GPU
-print(torch.cuda.get_device_name(torch.cuda.current_device()))
-
-# Is PyTorch using a GPU?
-print(torch.cuda.is_available())
-
 vocab_size = 50_000
 torch.manual_seed(123)
 
@@ -40,12 +34,14 @@ sentence_int = torch.tensor(
     [dc[s] for s in sentence.replace(',', '').split()]
 )
 
-embed = torch.nn.Embedding(vocab_size, 3)
+embed = torch.nn.Embedding(vocab_size, 2)
 embedded_sentence = embed(sentence_int).detach()
 
 print("X")
 print(embedded_sentence)
+print(embedded_sentence.shape)
 print(f"X.shape={embedded_sentence.shape}")
+print(torch.flatten(embedded_sentence))
 # print(torch.flatten(embedded_sentence))
 
 d = embedded_sentence.shape[1]

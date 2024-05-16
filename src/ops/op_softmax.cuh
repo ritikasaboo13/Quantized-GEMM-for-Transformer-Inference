@@ -37,5 +37,5 @@ void op_softmax(const Tensor<T> &A, Tensor<T> &B)
     int threadsPerBlock = 256;
     int numBlocks = static_cast<int>((ceil(static_cast<float>(A.w)/threadsPerBlock)));
 
-    softmax_kernel_new<<<numBlocks, threadsPerBlock>>>(A, B, A.h, A.w);
+    softmax_kernel<<<numBlocks, threadsPerBlock>>>(A, B, A.h, A.w);
 }
