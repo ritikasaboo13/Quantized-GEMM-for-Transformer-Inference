@@ -73,7 +73,11 @@ void test_matmul(int m, int n, int k, bool on_gpu, double* times) {
 
 int main(int argc, char *argv[]) {
     bool test_gpu = true;
+<<<<<<< Updated upstream
     int test_m = 2048, test_n = 2048, test_k = 2048;
+=======
+    int test_m = 2048, test_n = 512, test_k = 512;
+>>>>>>> Stashed changes
     double times[2] = {0, 0};
     for (;;) {
         switch (getopt(argc, argv, "s:cm:n:k:")) {
@@ -108,5 +112,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Final times" <<std::endl;
     std::cout << time/50 << " " << qtime/50 <<std::endl;
     return 0;
+<<<<<<< Updated upstream
 }
 
+=======
+}
+>>>>>>> Stashed changes

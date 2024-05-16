@@ -55,21 +55,17 @@ public:
         op_mm(X, W_k.t, K);  // K = X * W_k
         op_mm(X, W_v.t, V);  // V = X * W_v
 
-        std::cout << "here" << std::endl;
+        Tensor<T> K_transpose = K.transpose(); // K_transpose is of shape (d_k, seq_length), Q is of shape (seq_length, d_k)
+        Tensor<T> QK_T(Q.h, K_transpose.w, Q.on_device); // QK_T is of shape (seq_length, seq_length) 
+        op_mm(Q, K_transpose, QK_T); // QK^T 
 
-        // Tensor<T> K_transpose = K.transpose(); // K_transpose is of shape (d_k, seq_length), Q is of shape (seq_length, d_k)
-        // Tensor<T> QK_T(Q.h, K_transpose.w, Q.on_device); // QK_T is of shape (seq_length, seq_length) 
-        // op_mm(Q, K_transpose, QK_T); // QK^T 
+        Tensor<T> scaled_QK_T(QK_T.h, QK_T.w, QK_T.on_device); // QK_T is of shape (seq_length, seq_length)
+        T scale_factor = 1.0 / std::sqrt(d_k);
+        // use element-wise multiple of tensor "a" and element b
+        op_multiply(QK_T, scale_factor, scaled_QK_T); // Scale QK^T by sqrt(d_k)
 
-        // Tensor<T> scaled_QK_T(QK_T.h, QK_T.w, QK_T.on_device); // QK_T is of shape (seq_length, seq_length)
-        // T scale_factor = 1.0 / std::sqrt(d_k);
-        // //Tensor<T> scale_tensor(QK_T.h, QK_T.w, QK_T.on_device);
-        // //op_const_init(scale_tensor, scale_factor);
-        // // use element-wise multiple of tensor "a" and element b
-        // op_multiply(QK_T, scale_factor, scaled_QK_T); // Scale QK^T by sqrt(d_k)
-
-        // Tensor<T> softmax_QK_T(QK_T.h, QK_T.w, QK_T.on_device);
-        // op_softmax(scaled_QK_T, softmax_QK_T);  // Apply softmax : QK_T is of shape (seq_length, seq_length)
-        // op_mm(softmax_QK_T, V, output);  // Output = softmax(QK^T) * V
+        Tensor<T> softmax_QK_T(QK_T.h, QK_T.w, QK_T.on_device);
+        op_softmax(scaled_QK_T, softmax_QK_T);  // Apply softmax : QK_T is of shape (seq_length, seq_length)
+        op_mm(softmax_QK_T, V, output);  // Output = softmax(QK^T) * V
     }
 };

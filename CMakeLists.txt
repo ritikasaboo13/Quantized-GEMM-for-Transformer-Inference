@@ -10,7 +10,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 link_libraries(-lcurand)
 FILE(
   GLOB executables
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cu
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/test_attn.cu
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/timing_quantize.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
   )
 

@@ -11,7 +11,7 @@
 #include "modules/mlp.cuh"
 
 unsigned long long randgen_seed = 0;
-static bool on_gpu = false;
+static bool on_gpu = true;
 
 
 void test_layerNorm() {
@@ -25,44 +25,44 @@ void test_layerNorm() {
 
 }
 
-void init_W_for_test(const AttentionLayer<float> attn) {
-    // Initialize W_q
-    Index(attn.W_q.t, 0, 0) = 0.3816;
-    Index(attn.W_q.t, 0, 1) = 0.4737;
-    Index(attn.W_q.t, 1, 0) = 0.6913;
-    Index(attn.W_q.t, 1, 1) = 0.9397;
-
-    // Initialize W_k
-    Index(attn.W_k.t, 0, 0) = 0.0814;
-    Index(attn.W_k.t, 0, 1) = 0.1727;
-    Index(attn.W_k.t, 1, 0) = 0.0551;
-    Index(attn.W_k.t, 1, 1) = 0.6236;
-
-    // Initialize W_v
-    Index(attn.W_v.t, 0, 0) = 0.8240;
-    Index(attn.W_v.t, 0, 1) = 0.5434;
-    Index(attn.W_v.t, 0, 2) = 0.6511;
-    Index(attn.W_v.t, 0, 3) = 0.7613;
-    Index(attn.W_v.t, 1, 0) = 0.3102;
-    Index(attn.W_v.t, 1, 1) = 0.8053;
-    Index(attn.W_v.t, 1, 2) = 0.3108;
-    Index(attn.W_v.t, 1, 3) = 0.3031;        
+Tensor<float> assign_to_tensor(std::vector<float>& values, int rows, int columns, Tensor<float> mat) {
+    Tensor<float> X_host;
+    if (mat.on_device) {
+        X_host = mat.toHost();
+    } else {
+        X_host = mat;
+    } 
+    int index = 0;
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < columns; ++j) {
+            Index(X_host, i, j) = values[index++];
+        }
     }
+    Tensor<float> X;
+    if (mat.on_device) {
+        X = X_host.toDevice();
+    } else {
+        X = X_host;
+    }
+    return X; 
+}
 
 void test_singleHeadAttn(const Tensor<float> X, Tensor<float> attnOutput, int d_model) {
     // Single Head attention
     // Singlehead Attention parameters 
     // For single headed attention, d_model, d_k, d_v are all same as d_model
-    int d_k = d_model;
-    int d_v = d_model; 
+    int d_k = 2;
+    int d_q = d_k;
+    int d_v = 4; 
     AttentionLayer<float> attn{d_model, d_k, d_v, on_gpu};
-
-    init_W_for_test(attn);
-    
+    std::vector<float> values = {0.2482, 0.2993, 0.0759, 0.4924, 0.5452, 0.0620};
+    attn.W_q.t = assign_to_tensor(values, attn.W_q.t.h, attn.W_q.t.w, attn.W_q.t);
+    values = {0.8953, 0.6716, 0.7721, 0.8670, 0.0594, 0.7789};
+    attn.W_k.t = assign_to_tensor(values, attn.W_k.t.h, attn.W_k.t.w, attn.W_k.t);
+    values = {0.9583, 0.6320, 0.1432, 0.0040, 0.0569, 0.1546, 0.6056, 0.3590, 0.6802,
+        0.0089, 0.1739, 0.7423};
+    attn.W_v.t = assign_to_tensor(values, attn.W_v.t.h, attn.W_v.t.w, attn.W_v.t);
     attn.forward(X, attnOutput);
-    // std::cout << Index(attn.W_v.t, 1, 3) << std::endl;
-    // std::cout << "X= \n" << X.str() << std::endl;
-    // std::cout << "output= \n" << attnOutput.str() << std::endl;
 }
 
 void test_multiHeadAttn(const Tensor<float> X, Tensor<float> attnOutput, int d_model, int heads) {
@@ -99,22 +99,17 @@ void test_multiHeadAttn(const Tensor<float> X, Tensor<float> attnOutput, int d_m
 
 int main() {
     // Attention variables 
-    int seq_length = 2; 
-    int d_model = 2;
-    int heads = 4; 
-    float scale_factor = 1.0 / std::sqrt(d_model);
-
-    // Feedforward variables
-    int n_layers = 2;
-    std::vector<int> layer_dims;
-    int d_ff = 2048;
+    int seq_length = 2;
+    // int embedding_size = 3; 
+    int d_model = 3;
+    int d_k = 2;
+    int d_q = d_k;
+    int d_v = 4; 
 
     // Initialize the embedding vectors for a sequence 
     Tensor<float> X_host(seq_length, d_model);
-    Index(X_host, 0, 0) = 0.3374;
-    Index(X_host, 0, 1) = -0.1778;
-    Index(X_host, 1, 0) = -0.3035;
-    Index(X_host, 1, 1) = -0.5880;
+    std::vector<float> values = {0.3374, -0.1778, -0.3035, -0.5880,  0.3486,  0.6603};
+    X_host = assign_to_tensor(values, X_host.h, X_host.w, X_host);
 
     Tensor<float> X;
     if (on_gpu) {
@@ -122,70 +117,18 @@ int main() {
     } else {
         X = X_host;
     } 
-    // op_uniform_init(X, -scale_factor, scale_factor);
 
     // Test single head attention
-    Tensor<float> attnOutput(X.h, d_model, true);
+    Tensor<float> attnOutput(X.h, d_v, true);
     test_singleHeadAttn(X, attnOutput, d_model);
+    std::cout << attnOutput.str() << std::endl;
 
-    // Tensor<float> attnOutputTorch_host{X.h, d_model};
-    // Index(attnOutputTorch_host, 0, 0) = -0.0088;
-    // Index(attnOutputTorch_host, 0, 1) = -0.3661;
-    // Index(attnOutputTorch_host, 0, 2) = -0.0837;
-    // Index(attnOutputTorch_host, 0, 3) = -0.0548;
-    // Index(attnOutputTorch_host, 1, 0) = -0.0122;
-    // Index(attnOutputTorch_host, 1, 1) = -0.3768;
-    // Index(attnOutputTorch_host, 1, 2) = -0.0932;
-    // Index(attnOutputTorch_host, 1, 3) = -0.0682;
-    // Tensor<float> attnOutputTorch{X.h, d_model, true};
-    // if (on_gpu) {
-    //     attnOutputTorch = attnOutputTorch_host.toDevice();
-    // } else {
-    //     attnOutputTorch = attnOutputTorch_host;
-    // } 
-    // assert(op_allclose(attnOutputTorch, attnOutput));
-    // std::cout << "Single head attention tested! " << std::endl; 
+    Tensor<float> attnOutputTorch(X.h, d_v, true);
+    values = {0.0661,  0.1509,  0.1394, -0.0064,  0.0743,  0.1694,  0.1561, -0.0105};
+    attnOutputTorch = assign_to_tensor(values, attnOutputTorch.h, attnOutputTorch.w, attnOutputTorch);
 
-    // // Attention variables 
-    // int seq_length = 2; 
-    // int d_model = 512, heads = 8; 
-    // float scale_factor = 1.0 / std::sqrt(d_model);
-
-    // // Feedforward variables
-    // int n_layers = 2;
-    // std::vector<int> layer_dims;
-    // int d_ff = 2048;
-
-    // // Initialize the embedding vectors for a sequence 
-    // Tensor<float> X(seq_length, d_model, true); 
-    // op_uniform_init(X, -1.0f, 1.0f);
-
-    // // Test single head attention
-    // Tensor<float> attnOutput(X.h, d_model, true);
-    // test_singleHeadAttn(X, attnOutput, d_model);
-    // std::cout << "Single head attention tested! " << std::endl; 
-
-    // // Test multi head attention
-    // test_multiHeadAttn(X, attnOutput, d_model, heads);
-    // std::cout << "Multi head attention tested! " << std::endl; 
-
-    // // Add & Norm
-    // Tensor<float> addNormOutput(X.h, d_model, true);
-    // op_add(X, attnOutput, addNormOutput);
-    // op_layernorm(addNormOutput, addNormOutput);
-    // // INCOMPLETE: need to write layer normalization 
-
-    // // Feedforward Layer: 2 layer mlp with d_model => d_ff => d_model and relu in between 
-    // for (int i = 0; i < n_layers - 1; i++)
-    // {
-    //     layer_dims.push_back(d_ff);
-    // }
-    // layer_dims.push_back(d_model); // last layer's out dimension is always 10 (# of digits) // 
-
-    // Tensor<float> outputFfd(seq_length, d_model, true); 
-    // MLP<float> mlp(seq_length, d_model, layer_dims, on_gpu);
-    // mlp.init();
-    // mlp.forward(addNormOutput, outputFfd);
+    assert(op_allclose(attnOutputTorch, attnOutput));
+    std::cout << "Single head attention tested! " << std::endl; 
 
     return 0; 
 }

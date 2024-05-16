@@ -64,7 +64,7 @@ void op_mm(const Tensor<T>& A, const Tensor<T>& B, Tensor<OutT>& C)
 
 }
 
-//This operator compute C = A@B
+//This operator compute C = A@B using vector-wise absmax quantization
 template <typename T>
 void op_quantized_mm(const Tensor<T>& X, const Tensor<T>& W, Tensor<T>& O, T range)
 {
@@ -89,7 +89,6 @@ void op_quantized_mm(const Tensor<T>& X, const Tensor<T>& W, Tensor<T>& O, T ran
     op_multiply(W, sw, W_int8);
 
     // Int8 Matmul
-    
     Tensor<int> O_int32{X.h, W.w, on_gpu};
     op_mm(X_int8, W_int8, O_int32);
 
