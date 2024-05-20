@@ -9,20 +9,34 @@ In this project, we developed custom CUDA kernels to implement a fully quantized
 
 Key Features
 Int8 Quantized Matrix Multiplication: Implemented absmax vector-wise quantization for faster and more memory-efficient matrix operations.
+
+
 Transformer Architecture: Built encoder and decoder stacks with attention mechanisms following the "Attention is all you need" framework.
+
+
 Attention Layer: Developed a dedicated attention layer to support self and cross-attention during inference.
+
+
 Layer Normalization: Added kernel support for residual connections and normalization between layers.
 
 
 Performance Evaluation
 Quantization Error: Mean quantization error is 4.58078e-05.
+
+
 GEMM Timing: Unquantized GEMM: 0.31954 ms, Quantized GEMM: 1.33682 ms.
+
+
 Inference Efficiency: Significant performance gains for transformer models with sizes greater than 6.7 billion parameters.
 
 
 Contributions
 Ritika: Vector-wise quantization, dequantize operations, timing and error analysis, layer normalization, self-attention and multi-headed attention, debugging, and encoder implementation.
+
+
 Rhitvik: Attention operators, transformer architecture, and test cases for Softmax and attention layers.
+
+
 Charvi: Quantization operators, tests, self-attention validation, and report preparation.
 
 References
